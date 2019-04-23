@@ -12,7 +12,7 @@ float mut(int refA, int refB, int hA, int hB, float c) {
 /*
 	performs the actual computation of the scoring matrix and returns this
 */
-float** printlist(vector<int> H_A, vector<int> H_B, vector<vector<int>> Ref, float param_mut, set<int> E){
+float** perform_DP(vector<int> H_A, vector<int> H_B, vector<vector<int>> Ref, float param_mut, unordered_set<int> E){
 	int m = H_A.size();
 	int n = Ref.size();
 
@@ -65,34 +65,40 @@ float** printlist(vector<int> H_A, vector<int> H_B, vector<vector<int>> Ref, flo
 		}
 	}
 	
-	
 	float  mutcost, switchcost = 0;
 	float c00, c01, c10,c11,c02,c12,c21 = 0;
 	int j = 0;
-	for (int i = 1; i < m; ++i) {
 
-		
+	for (int i = 1; i < m; ++i) {
 		//fills the scoring matrix using the efficient computation of  O(m^2 x n)
 		for (int left = 0; left < n; left++) {
 			for (int right = 0; right < n; right++)  {
+				//add check whether the reference genotype would fit the target genotypes: if (ref[left][i]+ref[right][i]) != (ha[i]+hb[i]), then 
+				//set Score[i][j] = INT_MAX ? 
 				j = left*n + right;
-				mutcost = mut(ref[left][i],ref[right][i],ha[i],hb[i], param_mut);
-				c00 = Score[i-1][j];
-				c01 = 1+minrightlist[right];
-				c10 = 1+minleftlist[left];
-				c11 = 2+mingeneral;
-				if (E.find(i-1) != E.end()) {
-					c02 = Score[i-1][right*n + left];
-					c12 = 1+minrightlist[left];
-					c21 = 1+minleftlist[right];
-					float mins[] = {c00,c01,c10,c11,c02,c12,c21};			
-					switchcost = *min_element(mins,mins+7);
-				}
-				else {
-					float mins[] = {c00,c01,c10,c11};
-					switchcost = *min_element(mins, mins+4);				
-				}
-				Score[i][j] = switchcost + mutcost;					
+			//	if ((ref[left][i]+ref[right][i]) != (ha[i]+hb[i])) {
+			//		Score[i][j] = INT_MAX;				
+			//	}
+			//	else {
+					
+					mutcost = mut(ref[left][i],ref[right][i],ha[i],hb[i], param_mut);
+					c00 = Score[i-1][j];
+					c01 = 1+minrightlist[right];
+					c10 = 1+minleftlist[left];
+					c11 = 2+mingeneral;
+					if (E.find(i-1) != E.end()) {
+						c02 = Score[i-1][right*n + left];
+						c12 = 1+minrightlist[left];
+						c21 = 1+minleftlist[right];
+						float mins[] = {c00,c01,c10,c11,c02,c12,c21};			
+						switchcost = *min_element(mins,mins+7);
+					}
+					else {
+						float mins[] = {c00,c01,c10,c11};
+						switchcost = *min_element(mins, mins+4);				
+					}
+					Score[i][j] = switchcost + mutcost;		
+			//	}			
 			}
 		}
 		for (int k = 0; k < n; ++k) {
@@ -177,6 +183,7 @@ tuple<float, int> minimum(float* current_list, int l, int r, bool is_terminal, i
 */
 void compute_scoring(char* haplofile, char* E_file, char* panelfile, float mutation, char* out_costfile, char* out_pathfile){	
 	//haplofile: A file with the haplotype strings extracted from the target vcf
+	
 	ifstream file(haplofile);
  	string haplo1;
  	string haplo2;
@@ -208,7 +215,7 @@ void compute_scoring(char* haplofile, char* E_file, char* panelfile, float mutat
       	vectorE.push_back(stoi(value));
 		}
 	}
-	set<int> e{begin(vectorE), end(vectorE)};
+	unordered_set<int> e{begin(vectorE), end(vectorE)};
 	
 	//push strings for the haplotypes into vectors of ints
 	vector<int> H_A;
@@ -234,12 +241,12 @@ void compute_scoring(char* haplofile, char* E_file, char* panelfile, float mutat
 		}
 		Ref.push_back(row);
 	}
-	
+
 	//read in the mutation parameter
 		float param_mut = mutation;
 	
 	//perform the actual computation of the scoring matrix and return the matrix 'Score'	
-	float** Score = printlist(H_A,H_B,Ref, param_mut,e);
+	float** Score = perform_DP(H_A,H_B,Ref, param_mut,e);
 
 	
 	int end = H_A.size() -1;
